@@ -4,30 +4,41 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import CSSTransition from 'react-addons-css-transition-group'
 import './style.css'
-import { deleteArticle } from '../../ac'
+import { deleteArticle, loadArticle } from '../../ac'
+import { articleSelector } from '../../selectors'
+import Loader from '../common/loader'
+import i18n from '../i18n'
 
 class Article extends PureComponent {
   state = {
     error: null
   }
+
   componentDidCatch(error) {
     this.setState({ error })
   }
+
+  componentDidMount() {
+    const { loadArticle, article, id } = this.props
+
+    if (!article || (!article.text && !article.loading)) {
+      loadArticle(id)
+    }
+  }
+
   render() {
-    const { article, isOpen } = this.props
-    const buttonTitle = isOpen ? 'close' : 'open'
+    const { article, t } = this.props
+
+    if (!article) return null
 
     return (
       <div>
         <h3>{article.title}</h3>
-        <button onClick={this.handleClick} className={'test--article__btn'}>
-          {buttonTitle}
-        </button>
         <button
           onClick={this.handleDelete}
           className={'test--article-delete__btn'}
         >
-          Delete me
+          {t('delete me')}
         </button>
         <CSSTransition
           transitionName="article"
@@ -40,39 +51,42 @@ class Article extends PureComponent {
     )
   }
 
-  handleClick = () => {
-    this.props.toggleOpen(this.props.article.id)
-  }
-
   handleDelete = () => {
     this.props.dispatchDeleteArticle(this.props.article.id)
   }
 
   get body() {
-    const { isOpen, article } = this.props
+    const { article } = this.props
 
-    if (!isOpen) return null
+    if (article.loading) return <Loader key="loader" />
 
     return (
-      <section className={'test--article__body'}>
+      <section className={'test--article__body'} key="body">
         {article.text}
-        {this.state.error ? null : <CommentList comments={article.comments} />}
+        {this.state.error ? null : <CommentList article={article} />}
       </section>
     )
   }
 }
 
 Article.propTypes = {
+  id: PropTypes.string,
+
   article: PropTypes.shape({
     id: PropTypes.string,
     text: PropTypes.string,
-    comments: PropTypes.array
+    comments: PropTypes.array,
+    loading: PropTypes.bool
   }),
-  isOpen: PropTypes.bool.isRequired,
-  toggleOpen: PropTypes.func.isRequired
+  isOpen: PropTypes.bool.isRequired
 }
 
 export default connect(
-  null,
-  { dispatchDeleteArticle: deleteArticle }
-)(Article)
+  (state, ownProps) => ({
+    article: articleSelector(state, ownProps)
+  }),
+  {
+    dispatchDeleteArticle: deleteArticle,
+    loadArticle
+  }
+)(i18n(Article))
